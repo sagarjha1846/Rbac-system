@@ -81,7 +81,7 @@ describe("auth + permission guard", () => {
     const login = await request(app).post("/auth/login").send({ email: "admin@test.local", password: "Admin@1234" });
     const res = await request(app).get("/admin/users").set("Authorization", `Bearer ${login.body.token}`);
     expect(res.status).toBe(200);
-    expect(res.body.some((u: { email: string }) => u.email === "admin@test.local")).toBe(true);
+    expect(res.body.data.some((u: { email: string }) => u.email === "admin@test.local")).toBe(true);
   });
 
   it("validates the body on create-user and rejects a short password", async () => {
@@ -109,7 +109,7 @@ describe("auth + permission guard", () => {
 
     const auditRes = await request(app).get("/admin/audit-logs").set("Authorization", `Bearer ${login.body.token}`);
     expect(auditRes.status).toBe(200);
-    const entry = auditRes.body.find((a: { entityId: string }) => a.entityId === createRes.body.id);
+    const entry = auditRes.body.data.find((a: { entityId: string }) => a.entityId === createRes.body.id);
     expect(entry).toBeTruthy();
     expect(entry.source).toBe("MANUAL");
     expect(entry.action).toBe("user.create");

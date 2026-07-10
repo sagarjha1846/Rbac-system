@@ -223,7 +223,7 @@ describe("provisioning routes - permission gating", () => {
 
     const listAsAdmin = await request(app).get("/provisioning").set("Authorization", `Bearer ${adminLogin.body.token}`);
     expect(listAsAdmin.status).toBe(200);
-    expect(Array.isArray(listAsAdmin.body)).toBe(true);
+    expect(Array.isArray(listAsAdmin.body.data)).toBe(true);
   });
 
   it("401s draft submission with no token", async () => {

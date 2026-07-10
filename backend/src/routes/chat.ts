@@ -3,6 +3,7 @@ import { createSession, runAgentTurn } from "../ai/agent";
 import { authenticate, requirePermission } from "../auth/middleware";
 import { asyncHandler, validateBody } from "../utils/asyncHandler";
 import { chatMessageSchema } from "./validation";
+import { aiRateLimit } from "../utils/rateLimit";
 
 export const chatRouter = Router();
 // The chat agent can create users/permissions/groups, so it's gated behind
@@ -18,6 +19,7 @@ chatRouter.post(
 
 chatRouter.post(
   "/message",
+  aiRateLimit,
   validateBody(chatMessageSchema),
   asyncHandler(async (req, res) => {
     const { sessionId, message } = req.body;

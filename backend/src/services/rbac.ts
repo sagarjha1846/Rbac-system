@@ -45,11 +45,20 @@ export async function createModule(input: {
   });
 }
 
-export async function listModules(applicationKey?: string) {
-  if (!applicationKey) return prisma.module.findMany({ include: { application: true } });
+export async function listModules(applicationKey?: string, skip?: number, take?: number) {
+  const where = applicationKey ? { applicationId: (await requireApplication(applicationKey)).id } : {};
+  return prisma.module.findMany({ where, include: { application: true }, skip, take });
+}
+
+export async function countModules(applicationKey?: string) {
+  const where = applicationKey ? { applicationId: (await requireApplication(applicationKey)).id } : {};
+  return prisma.module.count({ where });
+}
+
+async function requireApplication(applicationKey: string) {
   const application = await findApplicationByKey(applicationKey);
   if (!application) throw new Error(`Application '${applicationKey}' does not exist`);
-  return prisma.module.findMany({ where: { applicationId: application.id } });
+  return application;
 }
 
 export async function findModuleByKey(applicationKey: string, moduleKey: string) {
@@ -97,10 +106,16 @@ export async function findPermissionGroupByKey(key: string) {
   return prisma.permissionGroup.findUnique({ where: { key } });
 }
 
-export async function listPermissionGroups() {
+export async function listPermissionGroups(skip?: number, take?: number) {
   return prisma.permissionGroup.findMany({
     include: { permissions: { include: { permission: { include: { module: true } } } } },
+    skip,
+    take,
   });
+}
+
+export async function countPermissionGroups() {
+  return prisma.permissionGroup.count();
 }
 
 export async function addPermissionToGroup(input: { permissionId: string; permissionGroupKey: string }) {
@@ -134,10 +149,16 @@ export async function createUser(input: {
   });
 }
 
-export async function listUsers() {
+export async function listUsers(skip?: number, take?: number) {
   return prisma.user.findMany({
     select: { id: true, firstName: true, lastName: true, email: true, role: true, isActive: true },
+    skip,
+    take,
   });
+}
+
+export async function countUsers() {
+  return prisma.user.count();
 }
 
 export async function findUserByEmail(email: string) {
@@ -154,13 +175,13 @@ export async function assignUserToApplication(input: { userId: string; applicati
   });
 }
 
-export async function assignUserToGroup(input: { userId: string; permissionGroupKey: string }) {
+export async function assignUserToGroup(input: { userId: string; permissionGroupKey: string; expiresAt?: Date }) {
   const group = await findPermissionGroupByKey(input.permissionGroupKey);
   if (!group) throw new Error(`Permission group '${input.permissionGroupKey}' does not exist`);
   return prisma.permissionGroupUserMapping.upsert({
     where: { permissionGroupId_userId: { permissionGroupId: group.id, userId: input.userId } },
-    update: {},
-    create: { permissionGroupId: group.id, userId: input.userId },
+    update: { expiresAt: input.expiresAt },
+    create: { permissionGroupId: group.id, userId: input.userId, expiresAt: input.expiresAt },
   });
 }
 

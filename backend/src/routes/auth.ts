@@ -5,11 +5,13 @@ import { signToken } from "../auth/jwt";
 import { resolvePermissionTree } from "../services/permissionTree";
 import { asyncHandler, validateBody } from "../utils/asyncHandler";
 import { loginSchema } from "./validation";
+import { loginRateLimit } from "../utils/rateLimit";
 
 export const authRouter = Router();
 
 authRouter.post(
   "/login",
+  loginRateLimit,
   validateBody(loginSchema),
   asyncHandler(async (req, res) => {
     const { email, password } = req.body;

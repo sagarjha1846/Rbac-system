@@ -1,4 +1,5 @@
 {
   "version": 2,
-  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }],
+  "crons": [{ "path": "/cron/expire-access", "schedule": "0 3 * * *" }]
 }

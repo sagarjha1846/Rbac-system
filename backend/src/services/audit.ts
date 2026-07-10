@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
 
-export type AuditSource = "MANUAL" | "AI_DRAFTED";
+export type AuditSource = "MANUAL" | "AI_DRAFTED" | "SYSTEM";
 
 export interface AuditEntry {
   actorId?: string | null;
@@ -28,10 +28,15 @@ export async function recordAudit(entry: AuditEntry) {
   });
 }
 
-export async function listAuditLogs(limit = 100) {
+export async function listAuditLogs(skip?: number, take?: number) {
   return prisma.auditLog.findMany({
     orderBy: { createdAt: "desc" },
-    take: Math.min(limit, 500),
+    skip,
+    take,
     include: { actor: { select: { id: true, email: true } } },
   });
+}
+
+export async function countAuditLogs() {
+  return prisma.auditLog.count();
 }

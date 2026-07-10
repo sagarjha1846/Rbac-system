@@ -5,6 +5,7 @@ import { authRouter } from "./routes/auth";
 import { adminRouter } from "./routes/admin";
 import { chatRouter } from "./routes/chat";
 import { provisioningRouter } from "./routes/provisioning";
+import { cronRouter } from "./routes/cron";
 
 export function createApp() {
   const app = express();
@@ -21,6 +22,7 @@ export function createApp() {
   app.use("/admin", adminRouter);
   app.use("/chat", chatRouter);
   app.use("/provisioning", provisioningRouter);
+  app.use("/cron", cronRouter);
 
   app.use((_req, res) => {
     res.status(404).json({ error: "Not found" });

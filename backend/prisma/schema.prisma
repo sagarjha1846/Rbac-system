@@ -17,6 +17,7 @@ enum ModuleType {
 enum AuditSource {
   MANUAL
   AI_DRAFTED
+  SYSTEM
 }
 
 enum ProvisioningStatus {
@@ -128,9 +129,14 @@ model PermissionGroupMapping {
 }
 
 model PermissionGroupUserMapping {
-  id                String @id @default(uuid())
+  id                String    @id @default(uuid())
   permissionGroupId String
   userId            String
+  // Set when this membership came from a time-boxed provisioning request
+  // (e.g. "temporary access"). Null means no expiry. Enforced lazily by
+  // resolvePermissionTree (filtered out once past) and swept by the
+  // periodic expire-access job (src/services/expiry.ts).
+  expiresAt         DateTime?
 
   permissionGroup PermissionGroup @relation(fields: [permissionGroupId], references: [id], onDelete: Cascade)
   user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)

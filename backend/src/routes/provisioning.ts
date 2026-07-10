@@ -5,10 +5,13 @@ import { draftProvisioningSchema, rejectProvisioningSchema } from "./validation"
 import {
   draftProvisioningRequest,
   listProvisioningRequests,
+  countProvisioningRequests,
   approveProvisioningRequest,
   rejectProvisioningRequest,
 } from "../services/provisioning";
 import { createLLMAdapter } from "../ai/llm";
+import { aiRateLimit } from "../utils/rateLimit";
+import { parsePagination, paginatedResponse } from "../utils/pagination";
 
 // Natural-language access provisioning: any authenticated user can describe
 // what they need in plain English, but nothing is executed until an
@@ -19,6 +22,7 @@ provisioningRouter.use(authenticate);
 
 provisioningRouter.post(
   "/draft",
+  aiRateLimit,
   validateBody(draftProvisioningSchema),
   asyncHandler(async (req: AuthedRequest, res) => {
     const llm = createLLMAdapter();
@@ -30,8 +34,13 @@ provisioningRouter.post(
 provisioningRouter.get(
   "/",
   requirePermission("rbac-admin", "read"),
-  asyncHandler(async (_req, res) => {
-    res.json(await listProvisioningRequests());
+  asyncHandler(async (req, res) => {
+    const pagination = parsePagination(req);
+    const [data, total] = await Promise.all([
+      listProvisioningRequests(pagination.skip, pagination.take),
+      countProvisioningRequests(),
+    ]);
+    res.json(paginatedResponse(data, total, pagination));
   })
 );
 

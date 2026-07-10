@@ -123,13 +123,33 @@ distinguish them. A production version would window this (e.g. "unused in
 the last 30 days") once there's enough log volume to make that meaningful;
 the demo's signal is "unused since granted."
 
-## 7. What's still out of scope
+## 7. Rate limiting, pagination, and expiry enforcement
 
-- No automatic expiry enforcement for `expiresAt` on a provisioning
-  request - it's captured as metadata but nothing revokes access when it
-  passes. Would need a scheduled job; deliberately deferred to keep this
-  pass bounded.
-- No pagination on audit/provisioning listing endpoints.
+Three gaps from the original roadmap, closed in a later pass:
+
+- **Rate limiting** (`src/utils/rateLimit.ts`): `POST /auth/login` is capped
+  at 10 attempts/15min per IP (brute-force). `POST /chat/message` and
+  `POST /provisioning/draft` are capped at 30/hour per IP, since both hit an
+  LLM and are otherwise an open cost/abuse surface independent of the
+  per-user permission check.
+- **Pagination** (`src/utils/pagination.ts`): `page`/`pageSize` query params
+  (default 20, max 100) on every list endpoint (`/admin/users`,
+  `/admin/modules`, `/admin/permission-groups`, `/admin/audit-logs`,
+  `/provisioning`), returning `{ data, page, pageSize, total }`.
+- **Provisioning expiry** (`src/services/expiry.ts`): `PermissionGroupUserMapping`
+  now has a nullable `expiresAt`, set when a provisioning request's
+  `draftedAction.expiresAt` is approved. Enforcement is two-layered: (1)
+  `resolvePermissionTree` filters out lapsed memberships at query time, so
+  expired access is never actually usable even a second late; (2)
+  `GET /cron/expire-access` (wired to Vercel Cron in `vercel.json`, daily)
+  deletes lapsed rows and logs a `SYSTEM`-sourced audit entry, purely for
+  data hygiene - the enforcement itself doesn't depend on the cron running.
+
+## 8. Still out of scope
+
 - Role clustering and over-privilege detection are pull-based (call the
   endpoint) rather than push-based (scheduled scan + alert) - fine for an
   admin dashboard, not for real-time alerting.
+- Over-privilege detection's "unused since granted" signal doesn't yet
+  window by recency (see §6) - not enough activity volume in a demo to
+  make that distinction meaningful.

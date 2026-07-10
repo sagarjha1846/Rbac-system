@@ -34,7 +34,13 @@ export async function resolvePermissionTree(userId: string): Promise<PermissionT
     (await prisma.applicationUserMapping.findMany({ where: { userId } })).map((m) => m.applicationId)
   );
 
-  const groupMemberships = await prisma.permissionGroupUserMapping.findMany({ where: { userId } });
+  // OR: no expiry set, OR expiry is still in the future - excludes lapsed
+  // temporary grants (e.g. from an approved provisioning request) without
+  // needing a scheduled job to run first; src/services/expiry.ts still
+  // sweeps them out of the table periodically for hygiene.
+  const groupMemberships = await prisma.permissionGroupUserMapping.findMany({
+    where: { userId, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+  });
   const groupIds = groupMemberships.map((g) => g.permissionGroupId);
   if (groupIds.length === 0) return [];
 

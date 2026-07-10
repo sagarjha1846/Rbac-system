@@ -89,11 +89,17 @@ export async function draftProvisioningRequest(prompt: string, requestedById: st
   return request;
 }
 
-export async function listProvisioningRequests() {
-  return prisma.provisioningRequest.findMany({ orderBy: { createdAt: "desc" } });
+export async function listProvisioningRequests(skip?: number, take?: number) {
+  return prisma.provisioningRequest.findMany({ orderBy: { createdAt: "desc" }, skip, take });
+}
+
+export async function countProvisioningRequests() {
+  return prisma.provisioningRequest.count();
 }
 
 async function executeDraftedAction(action: DraftedAction) {
+  const expiresAt = action.expiresAt ? new Date(action.expiresAt) : undefined;
+
   if (action.type === "create_user_and_assign") {
     const user = await rbac.createUser({
       firstName: action.firstName,
@@ -105,8 +111,8 @@ async function executeDraftedAction(action: DraftedAction) {
     if (action.applicationKey) {
       await rbac.assignUserToApplication({ userId: user.id, applicationKey: action.applicationKey });
     }
-    await rbac.assignUserToGroup({ userId: user.id, permissionGroupKey: action.permissionGroupKey });
-    return { userId: user.id, email: user.email };
+    await rbac.assignUserToGroup({ userId: user.id, permissionGroupKey: action.permissionGroupKey, expiresAt });
+    return { userId: user.id, email: user.email, expiresAt };
   }
 
   const user = await rbac.findUserByEmail(action.targetEmail);
@@ -114,8 +120,8 @@ async function executeDraftedAction(action: DraftedAction) {
   if (action.applicationKey) {
     await rbac.assignUserToApplication({ userId: user.id, applicationKey: action.applicationKey });
   }
-  await rbac.assignUserToGroup({ userId: user.id, permissionGroupKey: action.permissionGroupKey });
-  return { userId: user.id, email: user.email };
+  await rbac.assignUserToGroup({ userId: user.id, permissionGroupKey: action.permissionGroupKey, expiresAt });
+  return { userId: user.id, email: user.email, expiresAt };
 }
 
 function cryptoRandomPassword() {

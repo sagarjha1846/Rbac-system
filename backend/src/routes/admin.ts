@@ -2,10 +2,11 @@ import { Router } from "express";
 import { authenticate, requirePermission, AuthedRequest } from "../auth/middleware";
 import * as rbac from "../services/rbac";
 import { resolvePermissionTree } from "../services/permissionTree";
-import { recordAudit, listAuditLogs } from "../services/audit";
+import { recordAudit, listAuditLogs, countAuditLogs } from "../services/audit";
 import { suggestRoleClusters } from "../services/roleClustering";
 import { detectOverPrivilegedUsers } from "../services/anomalyDetection";
 import { asyncHandler, validateBody } from "../utils/asyncHandler";
+import { parsePagination, paginatedResponse } from "../utils/pagination";
 import * as v from "./validation";
 
 // All routes here are the plain CRUD surface for the RBAC admin console -
@@ -46,7 +47,13 @@ adminRouter.get(
   "/modules",
   requirePermission("rbac-admin", "read"),
   asyncHandler(async (req, res) => {
-    res.json(await rbac.listModules(req.query.applicationKey as string | undefined));
+    const applicationKey = req.query.applicationKey as string | undefined;
+    const pagination = parsePagination(req);
+    const [data, total] = await Promise.all([
+      rbac.listModules(applicationKey, pagination.skip, pagination.take),
+      rbac.countModules(applicationKey),
+    ]);
+    res.json(paginatedResponse(data, total, pagination));
   })
 );
 
@@ -89,8 +96,13 @@ adminRouter.post(
 adminRouter.get(
   "/permission-groups",
   requirePermission("rbac-admin", "read"),
-  asyncHandler(async (_req, res) => {
-    res.json(await rbac.listPermissionGroups());
+  asyncHandler(async (req, res) => {
+    const pagination = parsePagination(req);
+    const [data, total] = await Promise.all([
+      rbac.listPermissionGroups(pagination.skip, pagination.take),
+      rbac.countPermissionGroups(),
+    ]);
+    res.json(paginatedResponse(data, total, pagination));
   })
 );
 
@@ -136,8 +148,13 @@ adminRouter.post(
 adminRouter.get(
   "/users",
   requirePermission("rbac-admin", "read"),
-  asyncHandler(async (_req, res) => {
-    res.json(await rbac.listUsers());
+  asyncHandler(async (req, res) => {
+    const pagination = parsePagination(req);
+    const [data, total] = await Promise.all([
+      rbac.listUsers(pagination.skip, pagination.take),
+      rbac.countUsers(),
+    ]);
+    res.json(paginatedResponse(data, total, pagination));
   })
 );
 
@@ -270,7 +287,12 @@ adminRouter.get(
   "/audit-logs",
   requirePermission("rbac-admin", "read"),
   asyncHandler(async (req, res) => {
-    res.json(await listAuditLogs(req.query.limit ? Number(req.query.limit) : undefined));
+    const pagination = parsePagination(req);
+    const [data, total] = await Promise.all([
+      listAuditLogs(pagination.skip, pagination.take),
+      countAuditLogs(),
+    ]);
+    res.json(paginatedResponse(data, total, pagination));
   })
 );
 
