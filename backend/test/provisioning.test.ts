@@ -142,6 +142,39 @@ describe("HITL provisioning service layer", () => {
     expect(rejectAudit).toBeTruthy();
   });
 
+  it("approving a create_user_and_assign draft creates the new user and grants access in one step", async () => {
+    const { admin } = await seedBaseline();
+    const fakeLlm = new FakeLLMAdapter(
+      JSON.stringify({
+        type: "create_user_and_assign",
+        firstName: "New",
+        lastName: "Hire",
+        targetEmail: "new.hire@test.local",
+        role: "Marketing",
+        permissionGroupKey: "analytics-read-only",
+        applicationKey: "analytics",
+      })
+    );
+
+    const request = await draftProvisioningRequest(
+      "Onboard a new marketing hire with read-only analytics access",
+      admin.id,
+      fakeLlm
+    );
+    expect(request.status).toBe("PENDING_APPROVAL");
+
+    const beforeApproval = await rbac.findUserByEmail("new.hire@test.local");
+    expect(beforeApproval).toBeNull(); // drafting alone must not create the user
+
+    await approveProvisioningRequest(request.id, admin.id);
+
+    const newUser = await rbac.findUserByEmail("new.hire@test.local");
+    expect(newUser).toBeTruthy();
+    const tree = await resolvePermissionTree(newUser!.id);
+    expect(tree[0].applicationKey).toBe("analytics");
+    expect(tree[0].modules[0].canRead).toBe(true);
+  });
+
   it("refuses to approve or reject a request that isn't pending", async () => {
     const { admin } = await seedBaseline();
     const fakeLlm = new FakeLLMAdapter(
