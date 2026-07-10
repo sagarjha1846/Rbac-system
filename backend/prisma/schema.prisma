@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ModuleType {
+  BASIC
+  MENU
+  TAB
+}
+
+model User {
+  id           String   @id @default(uuid())
+  firstName    String
+  lastName     String
+  email        String   @unique
+  passwordHash String
+  isActive     Boolean  @default(true)
+  role         String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  applications        ApplicationUserMapping[]
+  permissionGroups     PermissionGroupUserMapping[]
+}
+
+model Application {
+  id          String   @id @default(uuid())
+  name        String
+  key         String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  modules Module[]
+  users   ApplicationUserMapping[]
+}
+
+model ApplicationUserMapping {
+  id            String @id @default(uuid())
+  applicationId String
+  userId        String
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationId, userId])
+}
+
+model Module {
+  id          String     @id @default(uuid())
+  applicationId String
+  name        String
+  key         String
+  description String?
+  order       Int        @default(0)
+  moduleType  ModuleType @default(BASIC)
+  moduleRoute String?
+  createdAt   DateTime   @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  permissions Permission[]
+
+  @@unique([applicationId, key])
+}
+
+// A Permission represents the read/add/modify/delete grant for one Module.
+// parentPermissionId lets a permission be scoped to a specific master data
+// record (via PermissionDataMapping) instead of granting access to the
+// whole module - e.g. "can read the Program module, but only for Anchor X".
+model Permission {
+  id                 String   @id @default(uuid())
+  moduleId           String
+  canRead            Boolean  @default(false)
+  canAdd             Boolean  @default(false)
+  canModify          Boolean  @default(false)
+  canDelete          Boolean  @default(false)
+  parentPermissionId String?
+  createdAt          DateTime @default(now())
+
+  module           Module              @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  parentPermission Permission?         @relation("PermissionScope", fields: [parentPermissionId], references: [id])
+  scopedChildren   Permission[]        @relation("PermissionScope")
+  groups           PermissionGroupMapping[]
+  dataMappings     PermissionDataMapping[]
+}
+
+model PermissionGroup {
+  id          String   @id @default(uuid())
+  name        String
+  key         String   @unique
+  description String?
+  type        String   @default("custom")
+  createdAt   DateTime @default(now())
+
+  permissions PermissionGroupMapping[]
+  users       PermissionGroupUserMapping[]
+}
+
+model PermissionGroupMapping {
+  id                String @id @default(uuid())
+  permissionId      String
+  permissionGroupId String
+
+  permission      Permission      @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  permissionGroup PermissionGroup @relation(fields: [permissionGroupId], references: [id], onDelete: Cascade)
+
+  @@unique([permissionId, permissionGroupId])
+}
+
+model PermissionGroupUserMapping {
+  id                String @id @default(uuid())
+  permissionGroupId String
+  userId            String
+
+  permissionGroup PermissionGroup @relation(fields: [permissionGroupId], references: [id], onDelete: Cascade)
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([permissionGroupId, userId])
+}
+
+// Catalog of roles (e.g. Anchor, Vendor, Co-lender, Originator).
+model MasterGroupStorage {
+  id          String @id @default(uuid())
+  name        String
+  key         String @unique
+  description String?
+
+  dataRecords MasterDataStorage[]
+}
+
+// Concrete entities a role-scoped permission can be pinned to
+// (e.g. a specific anchor company, keyed by PAN/code).
+model MasterDataStorage {
+  id            String @id @default(uuid())
+  masterGroupId String
+  name          String
+  code          String?
+  description   String?
+
+  masterGroup MasterGroupStorage @relation(fields: [masterGroupId], references: [id], onDelete: Cascade)
+  permissionData PermissionDataMapping[]
+}
+
+model PermissionDataMapping {
+  id           String @id @default(uuid())
+  permissionId String
+  masterDataId String
+
+  permission Permission        @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  masterData MasterDataStorage @relation(fields: [masterDataId], references: [id], onDelete: Cascade)
+
+  @@unique([permissionId, masterDataId])
+}
