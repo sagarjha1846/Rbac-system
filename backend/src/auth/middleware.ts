@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { verifyToken } from "./jwt";
 import { userCan, Action } from "../services/permissionTree";
+import { recordActivity } from "../services/activityLog";
 
 export interface AuthedRequest extends Request {
   userId?: string;
@@ -27,6 +28,7 @@ export function requirePermission(moduleKey: string, action: Action) {
     const masterDataId = (req.query.masterDataId as string) || undefined;
     const allowed = await userCan(req.userId, moduleKey, action, masterDataId);
     if (!allowed) return res.status(403).json({ error: `Not permitted: ${action} on ${moduleKey}` });
+    recordActivity(req.userId, moduleKey, action);
     next();
   };
 }

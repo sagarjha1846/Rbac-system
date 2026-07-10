@@ -98,4 +98,20 @@ describe("auth + permission guard", () => {
     expect(res.status).toBe(404);
     expect(res.body.error).toBeTruthy();
   });
+
+  it("logs a MANUAL audit entry for an admin-created user, and it's visible via /admin/audit-logs", async () => {
+    const login = await request(app).post("/auth/login").send({ email: "admin@test.local", password: "Admin@1234" });
+    const createRes = await request(app)
+      .post("/admin/users")
+      .set("Authorization", `Bearer ${login.body.token}`)
+      .send({ firstName: "Audited", lastName: "User", email: "audited@test.local", password: "Password123", role: "Vendor" });
+    expect(createRes.status).toBe(200);
+
+    const auditRes = await request(app).get("/admin/audit-logs").set("Authorization", `Bearer ${login.body.token}`);
+    expect(auditRes.status).toBe(200);
+    const entry = auditRes.body.find((a: { entityId: string }) => a.entityId === createRes.body.id);
+    expect(entry).toBeTruthy();
+    expect(entry.source).toBe("MANUAL");
+    expect(entry.action).toBe("user.create");
+  });
 });

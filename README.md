@@ -7,6 +7,11 @@ a time, you describe what you want in plain language and the assistant
 walks through the same steps via tool-calling, asking for anything it's
 missing along the way.
 
+It also has a governed, human-in-the-loop natural-language provisioning
+pathway, an append-only audit log, role-explosion clustering, and
+over-privilege detection - see `RBAC_VISION.md` for the full architecture
+and how these fit together.
+
 ## How the RBAC model works
 
 ```

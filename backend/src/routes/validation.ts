@@ -79,3 +79,11 @@ export const chatMessageSchema = z.object({
   sessionId: z.string().min(1),
   message: z.string().min(1),
 });
+
+export const draftProvisioningSchema = z.object({
+  prompt: z.string().min(1),
+});
+
+export const rejectProvisioningSchema = z.object({
+  reason: z.string().optional(),
+});

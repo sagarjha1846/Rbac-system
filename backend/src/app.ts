@@ -4,6 +4,7 @@ import morgan from "morgan";
 import { authRouter } from "./routes/auth";
 import { adminRouter } from "./routes/admin";
 import { chatRouter } from "./routes/chat";
+import { provisioningRouter } from "./routes/provisioning";
 
 export function createApp() {
   const app = express();
@@ -19,6 +20,7 @@ export function createApp() {
   app.use("/auth", authRouter);
   app.use("/admin", adminRouter);
   app.use("/chat", chatRouter);
+  app.use("/provisioning", provisioningRouter);
 
   app.use((_req, res) => {
     res.status(404).json({ error: "Not found" });

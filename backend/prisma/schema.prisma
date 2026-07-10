@@ -14,6 +14,17 @@ enum ModuleType {
   TAB
 }
 
+enum AuditSource {
+  MANUAL
+  AI_DRAFTED
+}
+
+enum ProvisioningStatus {
+  PENDING_APPROVAL
+  EXECUTED
+  REJECTED
+}
+
 model User {
   id           String   @id @default(uuid())
   firstName    String
@@ -27,6 +38,10 @@ model User {
 
   applications        ApplicationUserMapping[]
   permissionGroups     PermissionGroupUserMapping[]
+  requestedProvisioning ProvisioningRequest[] @relation("ProvisioningRequestedBy")
+  reviewedProvisioning  ProvisioningRequest[] @relation("ProvisioningReviewedBy")
+  auditLogs             AuditLog[]
+  activityLogs          AccessActivityLog[]
 }
 
 model Application {
@@ -155,4 +170,54 @@ model PermissionDataMapping {
   masterData MasterDataStorage @relation(fields: [masterDataId], references: [id], onDelete: Cascade)
 
   @@unique([permissionId, masterDataId])
+}
+
+// A natural-language access request, drafted by the AI provisioning
+// service but never auto-executed - it sits at PENDING_APPROVAL until a
+// human reviewer approves (which executes draftedAction) or rejects it.
+// See src/services/provisioning.ts.
+model ProvisioningRequest {
+  id             String             @id @default(uuid())
+  prompt         String
+  draftedAction  Json
+  status         ProvisioningStatus @default(PENDING_APPROVAL)
+  requestedById  String?
+  reviewedById   String?
+  reviewedAt     DateTime?
+  rejectionReason String?
+  createdAt      DateTime           @default(now())
+
+  requestedBy User? @relation("ProvisioningRequestedBy", fields: [requestedById], references: [id])
+  reviewedBy  User? @relation("ProvisioningReviewedBy", fields: [reviewedById], references: [id])
+}
+
+// Append-only trail of every access-control mutation, manual or
+// AI-originated. Nothing in this codebase updates or deletes a row here -
+// see src/services/audit.ts, which only ever inserts.
+model AuditLog {
+  id         String      @id @default(uuid())
+  actorId    String?
+  source     AuditSource
+  action     String
+  entityType String
+  entityId   String?
+  details    Json?
+  createdAt  DateTime    @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id])
+}
+
+// Records that a user actually exercised a granted permission (as opposed
+// to merely holding it) - the raw material for over-privilege detection.
+// Written by the requirePermission guard on every successful check.
+model AccessActivityLog {
+  id         String   @id @default(uuid())
+  userId     String
+  moduleKey  String
+  action     String
+  occurredAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, moduleKey, action])
 }
