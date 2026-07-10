@@ -103,6 +103,30 @@ Program/Anchor/Vendor/Co-lender modules and Anchor/Vendor/Co-lender/Originator
 master groups, so there's something realistic to point the assistant at
 immediately.
 
+### Tests
+
+```bash
+cd backend
+createdb rbac_system_test              # one-time; see .env.test for the connection string
+DATABASE_URL=... npx prisma migrate deploy   # apply the schema to the test DB
+npm test
+```
+
+`backend/test/` covers permission-tree resolution (including data-scoped
+grants) and the auth/guard behavior (401 unauthenticated, 403 lacking
+permission, 400 on invalid input) against a real Postgres test database via
+supertest - see `backend/.env.test`.
+
+### Production notes
+
+- Set `NODE_ENV=production`, a real random `JWT_SECRET`, and
+  `FRONTEND_ORIGIN` (comma-separated allowed origins for CORS) - the server
+  fails fast at boot if these are missing in production (`src/env.ts`).
+- Run `npm run prisma:deploy` (`prisma migrate deploy`) as a release step
+  rather than `prisma:migrate`, which is dev-only.
+- Set `frontend`'s `VITE_API_BASE_URL` to the deployed backend's URL - the
+  frontend no longer assumes same-origin/dev-proxy in production.
+
 ## Project layout
 
 ```

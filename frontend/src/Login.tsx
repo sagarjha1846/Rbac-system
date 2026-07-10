@@ -1,4 +1,5 @@
 import { FormEvent, useState } from "react";
+import { apiUrl } from "./api";
 
 export function Login({ onLogin }: { onLogin: (token: string) => void }) {
   const [email, setEmail] = useState("admin@example.com");
@@ -11,7 +12,7 @@ export function Login({ onLogin }: { onLogin: (token: string) => void }) {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch("/auth/login", {
+      const res = await fetch(apiUrl("/auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),

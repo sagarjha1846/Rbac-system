@@ -1,4 +1,5 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { apiUrl } from "./api";
 
 interface Message {
   role: "user" | "assistant";
@@ -8,18 +9,30 @@ interface Message {
 
 export function Chat({ token, onLogout }: { token: string; onLogout: () => void }) {
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  const [bootstrapping, setBootstrapping] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    fetch("/chat/session", { method: "POST", headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
-      .then((d) => setSessionId(d.sessionId))
-      .catch((err) => setError(err.message));
+  const startSession = useCallback(() => {
+    setBootstrapping(true);
+    setSessionError(null);
+    fetch(apiUrl("/chat/session"), { method: "POST", headers: { Authorization: `Bearer ${token}` } })
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Could not start chat session");
+        setSessionId(data.sessionId);
+      })
+      .catch((err) => setSessionError(err.message))
+      .finally(() => setBootstrapping(false));
   }, [token]);
+
+  useEffect(() => {
+    startSession();
+  }, [startSession]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -34,7 +47,7 @@ export function Chat({ token, onLogout }: { token: string; onLogout: () => void 
     setSending(true);
     setError(null);
     try {
-      const res = await fetch("/chat/message", {
+      const res = await fetch(apiUrl("/chat/message"), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ sessionId, message: userMessage }),
@@ -55,8 +68,19 @@ export function Chat({ token, onLogout }: { token: string; onLogout: () => void 
         <h2>RBAC Admin Assistant</h2>
         <button onClick={onLogout}>Log out</button>
       </div>
+
+      {sessionError && (
+        <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: 12, marginBottom: 12 }}>
+          <p style={{ color: "crimson", margin: 0 }}>Couldn't start a chat session: {sessionError}</p>
+          <button onClick={startSession} style={{ marginTop: 8 }}>
+            Retry
+          </button>
+        </div>
+      )}
+
       <div style={{ border: "1px solid #ddd", borderRadius: 8, minHeight: 400, maxHeight: 500, overflowY: "auto", padding: 12 }}>
-        {messages.length === 0 && (
+        {bootstrapping && <p style={{ color: "#888" }}>Starting chat session...</p>}
+        {!bootstrapping && !sessionError && messages.length === 0 && (
           <p style={{ color: "#888" }}>
             Try: "Add Rajesh (rajesh@example.com) with read and add access to the Vendor module, put him in a new
             group called Vendor Manager"
